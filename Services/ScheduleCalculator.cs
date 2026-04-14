@@ -35,10 +35,14 @@ public static class ScheduleCalculator
             // Drop degenerate (end ≤ start and not crossing midnight).
             if (!endNextDay && endTime <= startTime) continue;
 
+            // FFXIVVenues encodes days as 0=Mon..6=Sun (ISO), but .NET's DayOfWeek
+            // is 0=Sun..6=Sat. Convert once here so NearestDayOfWeek stays simple.
+            var targetDotNetDow = FfxivDayToDotNet(utc.Day);
+
             // Check three adjacent weeks so we catch in-progress + next-future windows.
             for (var weekOffset = -1; weekOffset <= 1; weekOffset++)
             {
-                var startDate = NearestDayOfWeek(nowUtc.Date, utc.Day, weekOffset);
+                var startDate = NearestDayOfWeek(nowUtc.Date, targetDotNetDow, weekOffset);
                 var startAt = startDate.Add(startTime);
                 var endAt = (endNextDay ? startDate.AddDays(1) : startDate).Add(endTime);
                 if (endAt <= startAt) endAt = endAt.AddDays(1); // defence-in-depth
@@ -67,4 +71,10 @@ public static class ScheduleCalculator
 
     private static bool IsValidHm(int hour, int minute)
         => hour is >= 0 and <= 23 && minute is >= 0 and <= 59;
+
+    /// <summary>
+    /// FFXIVVenues uses ISO day numbering (0=Mon..6=Sun); .NET's <see cref="DayOfWeek"/>
+    /// uses 0=Sun..6=Sat. This is the conversion between them.
+    /// </summary>
+    internal static int FfxivDayToDotNet(int ffxivDay) => (ffxivDay + 1) % 7;
 }
