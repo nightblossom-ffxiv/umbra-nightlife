@@ -14,22 +14,20 @@ namespace UmbraNightlife.Widgets;
 
 /// <summary>
 /// Toolbar widget "Tonight in Eorzea" — shows how many venues are live on your
-/// selected data centre, and opens a menu listing them with one-click teleport.
+/// data centre, and opens a menu listing them with one-click teleport.
 ///
 /// Data comes from <see href="https://api.ffxivvenues.com/">FFXIVVenues</see>.
 /// We do not host or aggregate the data; the widget is purely a client.
 ///
-/// Interactions:
-/// <list type="bullet">
-///   <item><b>Click</b> — teleport via Lifestream.</item>
-///   <item><b>Ctrl+Click</b> — toggle favorite (pinned at top).</item>
-///   <item><b>Shift+Click</b> — toggle hide (won't show in the main list).</item>
-/// </list>
+/// Click a venue to teleport via Lifestream.
+/// <b>Ctrl+Click</b> to pin it to a Favorites section at the top.
+/// <b>Shift+Click</b> to hide it; the footer lets you restore hidden venues.
+/// All times are shown in Server Time (ST).
 /// </summary>
 [ToolbarWidget(
     "NightlifeWidget",
     "Tonight in Eorzea",
-    "Discover FFXIV venues that are open right now. Click a venue to teleport via Lifestream. Data by ffxivvenues.com."
+    "Discover FFXIV venues that are open right now. Click to teleport via Lifestream. Ctrl+Click to favorite, Shift+Click to hide. Data by ffxivvenues.com."
 )]
 public class NightlifeWidget(
     WidgetInfo info,
@@ -37,15 +35,12 @@ public class NightlifeWidget(
     Dictionary<string, object>? configValues = null
 ) : StandardToolbarWidget(info, guid, configValues)
 {
-    // Umbra exposes Dalamud services via Framework.Service<T>, and the plugin
-    // interface itself via Framework.DalamudPlugin (it is not in the service
-    // container because sub-plugins shouldn't have full plugin power).
     private static IDalamudPluginInterface PluginInterface => Framework.DalamudPlugin;
     private static ICommandManager CommandManager => Framework.Service<ICommandManager>();
     private static IChatGui ChatGui => Framework.Service<IChatGui>();
     private static IPluginLog Log => Framework.Service<IPluginLog>();
     private static IKeyState KeyState => Framework.Service<IKeyState>();
-    private static IGameConfig GameConfig => Framework.Service<IGameConfig>();
+    private static IObjectTable ObjectTable => Framework.Service<IObjectTable>();
 
     private FfxivVenuesClient? _client;
     private LifestreamBridge? _lifestream;
@@ -73,7 +68,7 @@ public class NightlifeWidget(
             new SelectWidgetConfigVariable(
                     "DataCenter",
                     I18N("Data Centre"),
-                    I18N("Filter to a single data centre, or show venues from all data centres."),
+                    I18N("Default shows only venues on your current data centre. Choose a specific DC or 'All' to override."),
                     "",
                     DataCentreOptions()
                 ) { Category = "Filters" },
@@ -104,7 +99,8 @@ public class NightlifeWidget(
     private static Dictionary<string, string> DataCentreOptions()
         => new()
         {
-            [""] = "All data centres",
+            [""] = "Auto (your current data centre)",
+            ["All"] = "All data centres",
             ["Aether"] = "Aether (NA)",
             ["Primal"] = "Primal (NA)",
             ["Crystal"] = "Crystal (NA)",
@@ -122,7 +118,7 @@ public class NightlifeWidget(
 
     protected override void OnLoad()
     {
-        SetGameIconId(63934); // moon-ish icon; users can swap via CustomizableIcon.
+        SetGameIconId(63934);
         SetText("Tonight");
 
         var configDir = Path.Combine(PluginInterface.GetPluginConfigDirectory(), "UmbraNightlife");
@@ -136,8 +132,6 @@ public class NightlifeWidget(
     protected override void OnDraw()
     {
         if (_client is null) return;
-
-        // Rebuild menu at most every 30 seconds; avoids jitter while Popup is open.
         if (DateTime.UtcNow - _lastRebuildAtUtc < RebuildInterval) return;
 
         RebuildPopup();
@@ -161,7 +155,7 @@ public class NightlifeWidget(
 
         Popup.Clear();
 
-        var dc = GetConfigValue<string>("DataCenter") ?? "";
+        var dcFilter = ResolveDataCenterFilter();
         var openOnly = GetConfigValue<bool>("OpenOnly");
         var sfwOnly = GetConfigValue<bool>("SfwOnly");
         var maxItems = Math.Clamp(GetConfigValue<int>("MaxItems"), 5, 100);
@@ -179,8 +173,7 @@ public class NightlifeWidget(
             return;
         }
 
-        // Build view list with filters applied. Favorites are always shown, even when
-        // they fail the open-only / SFW / DC filters — pinning wins.
+        // Favorites bypass filters — pinning wins.
         var views = new List<VenueView>(source.Count);
         var favoriteViews = new List<VenueView>();
         foreach (var dto in source)
@@ -188,13 +181,9 @@ public class NightlifeWidget(
             var v = VenueProjection.Project(dto, nowUtc);
             if (v is null) continue;
 
-            if (_preferences.IsFavorite(v.Id))
-            {
-                favoriteViews.Add(v);
-                continue;
-            }
+            if (_preferences.IsFavorite(v.Id)) { favoriteViews.Add(v); continue; }
             if (_preferences.IsHidden(v.Id)) continue;
-            if (!string.IsNullOrEmpty(dc) && v.DataCenter != dc) continue;
+            if (dcFilter is not null && v.DataCenter != dcFilter) continue;
             if (sfwOnly && !v.Sfw) continue;
             if (openOnly && !v.IsOpenNow) continue;
             views.Add(v);
@@ -204,14 +193,10 @@ public class NightlifeWidget(
         favoriteViews.Sort(VenueComparer.Instance);
 
         var liveCount = views.Count(v => v.IsOpenNow) + favoriteViews.Count(v => v.IsOpenNow);
+        var totalCount = views.Count + favoriteViews.Count;
         SetText(liveCount > 0 ? $"{liveCount} live" : "Tonight");
-        SetSubText(views.Count == 0 && favoriteViews.Count == 0 ? "No matches" : $"{views.Count + favoriteViews.Count} venues");
+        SetSubText(totalCount == 0 ? "No matches" : $"{totalCount} venues");
 
-        // ── Header hint ──────────────────────────────────────────────
-        Popup.Add(new MenuPopup.Header(
-            "Click = teleport · Ctrl+Click = ⭐ favorite · Shift+Click = hide"));
-
-        // ── Section: Favorites ───────────────────────────────────────
         if (favoriteViews.Count > 0)
         {
             var group = new MenuPopup.Group($"⭐ Favorites ({favoriteViews.Count})");
@@ -225,7 +210,6 @@ public class NightlifeWidget(
             return;
         }
 
-        // ── Section: Open now ────────────────────────────────────────
         var liveVenues = views.Where(v => v.IsOpenNow).Take(maxItems).ToList();
         if (liveVenues.Count > 0)
         {
@@ -234,7 +218,6 @@ public class NightlifeWidget(
             Popup.Add(group);
         }
 
-        // ── Section: Opening soon ────────────────────────────────────
         var remaining = maxItems - liveVenues.Count;
         if (remaining > 0)
         {
@@ -250,7 +233,6 @@ public class NightlifeWidget(
             }
         }
 
-        // ── Footer actions ───────────────────────────────────────────
         var hiddenCount = _preferences.Hidden.Count;
         if (hiddenCount > 0)
         {
@@ -258,7 +240,6 @@ public class NightlifeWidget(
             {
                 OnClick = () =>
                 {
-                    // Clear hidden — one-tap restore of everything.
                     foreach (var id in _preferences.Hidden.ToList()) _preferences.ToggleHidden(id);
                     _lastRebuildAtUtc = DateTime.MinValue;
                 },
@@ -282,19 +263,16 @@ public class NightlifeWidget(
         var label = isFavorite ? $"⭐ {v.Name}" : v.Name;
 
         var time = v.IsOpenNow
-            ? $"closes {TimeDisplay.Format(v.CurrentCloseAtUtc!.Value, GameConfig)}"
+            ? $"closes {FormatTime(v.CurrentCloseAtUtc!.Value)}"
             : v.NextOpenAtUtc is not null
                 ? $"opens {FormatNextOpen(v.NextOpenAtUtc.Value)}"
                 : "schedule unknown";
-
-        var altText = $"{v.DataCenter}/{v.World} · {time}\n"
-                    + $"Click = teleport  ·  Ctrl+Click = {(isFavorite ? "unfavorite" : "favorite")}  ·  Shift+Click = hide";
 
         return new MenuPopup.Button(label)
         {
             OnClick = () => HandleVenueClick(v),
             Icon = v.IsOpenNow ? 60045u : 60046u,
-            AltText = altText,
+            AltText = $"{v.DataCenter}/{v.World} · {time}",
         };
     }
 
@@ -302,8 +280,6 @@ public class NightlifeWidget(
     {
         if (_preferences is null) return;
 
-        // Check modifier keys at click time; Umbra's MenuPopup.Button
-        // doesn't carry modifier info in the callback.
         var ctrl = KeyState[VirtualKey.CONTROL];
         var shift = KeyState[VirtualKey.SHIFT];
 
@@ -322,17 +298,45 @@ public class NightlifeWidget(
             _lifestream?.TeleportTo(v);
         }
 
-        _lastRebuildAtUtc = DateTime.MinValue; // force rebuild on next draw
+        _lastRebuildAtUtc = DateTime.MinValue;
     }
 
     // ── Helpers ─────────────────────────────────────────────────────────
 
-    private string FormatNextOpen(DateTime futureUtc)
+    /// <summary>
+    /// "" = auto (current DC, or null if not logged in → no filter).
+    /// "All" = explicit no filter.
+    /// DC name = that DC only.
+    /// Returns null when no filtering should happen.
+    /// </summary>
+    private string? ResolveDataCenterFilter()
+    {
+        var setting = GetConfigValue<string>("DataCenter") ?? "";
+        if (setting == "All") return null;
+        if (setting != "") return setting;
+
+        try
+        {
+            var world = ObjectTable.LocalPlayer?.CurrentWorld.ValueNullable;
+            var dcName = world?.DataCenter.ValueNullable?.Name.ExtractText();
+            if (!string.IsNullOrWhiteSpace(dcName)) return dcName;
+        }
+        catch
+        {
+            // Not logged in or API shape changed — fall through.
+        }
+        return null; // no DC detected → show all
+    }
+
+    private static string FormatTime(DateTime utc)
+        => $"{utc:HH\\:mm} ST";
+
+    private static string FormatNextOpen(DateTime futureUtc)
     {
         var delta = futureUtc - DateTime.UtcNow;
         var absolute = delta.TotalHours < 24
-            ? TimeDisplay.Format(futureUtc, GameConfig)
-            : TimeDisplay.FormatWithDay(futureUtc, GameConfig);
+            ? $"{futureUtc:HH\\:mm} ST"
+            : $"{futureUtc:ddd HH\\:mm} ST";
 
         var relative = delta.TotalMinutes < 1 ? "now"
                      : delta.TotalMinutes < 60 ? $"in {(int)delta.TotalMinutes}m"
@@ -342,7 +346,7 @@ public class NightlifeWidget(
         return $"{absolute} ({relative})";
     }
 
-    private static string I18N(string key) => key; // Swap in Umbra.Common's I18N helper when we localise.
+    private static string I18N(string key) => key;
 
     private sealed class VenueComparer : IComparer<VenueView>
     {
@@ -351,18 +355,15 @@ public class NightlifeWidget(
         public int Compare(VenueView? a, VenueView? b)
         {
             if (a is null || b is null) return 0;
-            // Open now first.
             var aLive = a.IsOpenNow ? 0 : 1;
             var bLive = b.IsOpenNow ? 0 : 1;
             if (aLive != bLive) return aLive - bLive;
 
-            // Among closed, earliest upcoming first.
             var aNext = a.NextOpenAtUtc ?? DateTime.MaxValue;
             var bNext = b.NextOpenAtUtc ?? DateTime.MaxValue;
             var cmp = aNext.CompareTo(bNext);
             if (cmp != 0) return cmp;
 
-            // Finally alphabetical.
             return string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase);
         }
     }
