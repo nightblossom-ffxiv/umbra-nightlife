@@ -199,7 +199,7 @@ public class NightlifeWidget(
 
         if (favoriteViews.Count > 0)
         {
-            var group = new MenuPopup.Group($"⭐ Favorites ({favoriteViews.Count})");
+            var group = new MenuPopup.Group($"★ Favorites ({favoriteViews.Count})");
             foreach (var v in favoriteViews) group.Add(BuildVenueButton(v, isFavorite: true));
             Popup.Add(group);
         }
@@ -260,7 +260,7 @@ public class NightlifeWidget(
 
     private MenuPopup.Button BuildVenueButton(VenueView v, bool isFavorite = false)
     {
-        var label = isFavorite ? $"⭐ {v.Name}" : v.Name;
+        var label = isFavorite ? $"★ {v.Name}" : v.Name;
 
         var time = v.IsOpenNow
             ? $"closes {FormatTime(v.CurrentCloseAtUtc!.Value)}"
@@ -273,6 +273,8 @@ public class NightlifeWidget(
             OnClick = () => HandleVenueClick(v),
             Icon = v.IsOpenNow ? 60045u : 60046u,
             AltText = $"{v.DataCenter}/{v.World} · {time}",
+            // Keep the popup open so Ctrl/Shift batches don't slam it shut after each click.
+            ClosePopupOnClick = false,
         };
     }
 
@@ -287,6 +289,7 @@ public class NightlifeWidget(
         {
             _preferences.ToggleFavorite(v.Id);
             ChatGui.Print($"[Nightlife] {v.Name} {(_preferences.IsFavorite(v.Id) ? "★ favorited" : "unfavorited")}.");
+            // Keep the popup open so the user can ★ or hide several venues in a row.
         }
         else if (shift)
         {
@@ -296,6 +299,8 @@ public class NightlifeWidget(
         else
         {
             _lifestream?.TeleportTo(v);
+            // Plain click is a teleport — close the menu so it doesn't linger over the gameplay view.
+            Popup.Close();
         }
 
         _lastRebuildAtUtc = DateTime.MinValue;
