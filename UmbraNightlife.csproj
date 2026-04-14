@@ -14,7 +14,7 @@
         <ProduceReferenceAssembly>false</ProduceReferenceAssembly>
         <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
         <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
-        <OutputPath>..\..\out\$(Configuration)\UmbraNightlife\</OutputPath>
+        <OutputPath>out\$(Configuration)\</OutputPath>
     </PropertyGroup>
 
     <PropertyGroup>
