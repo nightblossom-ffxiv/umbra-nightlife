@@ -28,11 +28,13 @@ public class NightlifeWidget(
     Dictionary<string, object>? configValues = null
 ) : StandardToolbarWidget(info, guid, configValues)
 {
-    // Umbra's framework gives us singletons; our services are created per-widget on load.
-    private static readonly IDalamudPluginInterface PluginInterface = Framework.Service<IDalamudPluginInterface>();
-    private static readonly ICommandManager CommandManager = Framework.Service<ICommandManager>();
-    private static readonly IChatGui ChatGui = Framework.Service<IChatGui>();
-    private static readonly IPluginLog Log = Framework.Service<IPluginLog>();
+    // Umbra exposes Dalamud services via Framework.Service<T>, and the plugin
+    // interface itself via Framework.DalamudPlugin (it is not in the service
+    // container because sub-plugins shouldn't have full plugin power).
+    private static IDalamudPluginInterface PluginInterface => Framework.DalamudPlugin;
+    private static ICommandManager CommandManager => Framework.Service<ICommandManager>();
+    private static IChatGui ChatGui => Framework.Service<IChatGui>();
+    private static IPluginLog Log => Framework.Service<IPluginLog>();
 
     private FfxivVenuesClient? _client;
     private LifestreamBridge? _lifestream;

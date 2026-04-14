@@ -39,7 +39,8 @@ public sealed class FfxivVenuesClient : IDisposable
     {
         _pi = pi;
         _log = log;
-        _cachePath = Path.Combine(_pi.GetPluginConfigDirectory(), CacheFileName);
+        // Sub-folder under Umbra's plugin-config dir so we don't pollute Umbra's own files.
+        _cachePath = Path.Combine(_pi.GetPluginConfigDirectory(), "UmbraNightlife", CacheFileName);
 
         _http = new HttpClient
         {

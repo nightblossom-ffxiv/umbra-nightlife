@@ -22,9 +22,9 @@
         <AssemblyName>UmbraNightlife</AssemblyName>
         <RootNamespace>UmbraNightlife</RootNamespace>
         <Authors>Nightblossom Team</Authors>
-        <Version>1.0.0.0</Version>
-        <AssemblyVersion>1.0.0.0</AssemblyVersion>
-        <FileVersion>1.0.0.0</FileVersion>
+        <Version>1.0.0.1</Version>
+        <AssemblyVersion>1.0.0.1</AssemblyVersion>
+        <FileVersion>1.0.0.1</FileVersion>
         <Description>Discover FFXIV venues from your Umbra toolbar. Powered by ffxivvenues.com.</Description>
         <Copyright>(C) 2026 Nightblossom</Copyright>
         <PackageProjectUrl>https://github.com/nightblossom-ffxiv/nightblossom-helper</PackageProjectUrl>
