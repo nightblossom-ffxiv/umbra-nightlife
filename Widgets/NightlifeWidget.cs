@@ -266,13 +266,21 @@ public class NightlifeWidget(
             ? $"closes {FormatTime(v.CurrentCloseAtUtc!.Value)}"
             : v.NextOpenAtUtc is not null
                 ? $"opens {FormatNextOpen(v.NextOpenAtUtc.Value)}"
-                : "schedule unknown";
+                : "no upcoming session";
+
+        // Show the first 2 tags as a quick "what kind of place" hint.
+        var tagSummary = v.Tags.Count switch
+        {
+            0 => "",
+            1 => $"{v.Tags[0]} · ",
+            _ => $"{v.Tags[0]}, {v.Tags[1]} · ",
+        };
 
         return new MenuPopup.Button(label)
         {
             OnClick = () => HandleVenueClick(v),
             Icon = v.IsOpenNow ? 60045u : 60046u,
-            AltText = $"{v.DataCenter}/{v.World} · {time}",
+            AltText = $"{tagSummary}{v.DataCenter}/{v.World} · {time}",
             // Keep the popup open so Ctrl/Shift batches don't slam it shut after each click.
             ClosePopupOnClick = false,
         };

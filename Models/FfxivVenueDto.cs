@@ -38,6 +38,19 @@ public sealed class FfxivScheduleDto
 {
     [JsonPropertyName("day")] public int Day { get; set; }
     [JsonPropertyName("utc")] public FfxivUtcBlockDto? Utc { get; set; }
+
+    /// <summary>
+    /// Pre-resolved next occurrence — already accounts for biweekly / monthly intervals
+    /// and the schedule's <c>commencing</c> date. Trust this over computing the weekly
+    /// pattern ourselves; otherwise biweekly venues like Bliss show as open every week.
+    /// </summary>
+    [JsonPropertyName("resolution")] public FfxivResolutionDto? Resolution { get; set; }
+}
+
+public sealed class FfxivResolutionDto
+{
+    [JsonPropertyName("start")] public System.DateTimeOffset? Start { get; set; }
+    [JsonPropertyName("end")] public System.DateTimeOffset? End { get; set; }
 }
 
 public sealed class FfxivUtcBlockDto
