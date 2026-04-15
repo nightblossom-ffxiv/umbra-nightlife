@@ -254,7 +254,6 @@ public class NightlifeWidget(
                 _ = _client.RefreshAsync(System.Threading.CancellationToken.None);
                 _lastRebuildAtUtc = DateTime.MinValue;
             },
-            Icon = 60033u,
         });
     }
 
@@ -279,7 +278,6 @@ public class NightlifeWidget(
         return new MenuPopup.Button(label)
         {
             OnClick = () => HandleVenueClick(v),
-            Icon = v.IsOpenNow ? 60045u : 60046u,
             AltText = $"{tagSummary}{v.DataCenter}/{v.World} · {time}",
             // Keep the popup open so Ctrl/Shift batches don't slam it shut after each click.
             ClosePopupOnClick = false,
