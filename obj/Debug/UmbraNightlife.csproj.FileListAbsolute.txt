@@ -1,0 +1,11 @@
+C:\Users\user\.claude\projects\NBH\out\Debug\UmbraNightlife\UmbraNightlife.deps.json
+C:\Users\user\.claude\projects\NBH\out\Debug\UmbraNightlife\UmbraNightlife.dll
+C:\Users\user\.claude\projects\NBH\out\Debug\UmbraNightlife\UmbraNightlife.pdb
+C:\Users\user\.claude\projects\NBH\Plugin\UmbraNightlife\obj\Debug\UmbraNightlife.csproj.AssemblyReference.cache
+C:\Users\user\.claude\projects\NBH\Plugin\UmbraNightlife\obj\Debug\UmbraNightlife.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\user\.claude\projects\NBH\Plugin\UmbraNightlife\obj\Debug\UmbraNightlife.AssemblyInfoInputs.cache
+C:\Users\user\.claude\projects\NBH\Plugin\UmbraNightlife\obj\Debug\UmbraNightlife.AssemblyInfo.cs
+C:\Users\user\.claude\projects\NBH\Plugin\UmbraNightlife\obj\Debug\UmbraNightlife.csproj.CoreCompileInputs.cache
+C:\Users\user\.claude\projects\NBH\Plugin\UmbraNightlife\obj\Debug\UmbraNightlife.sourcelink.json
+C:\Users\user\.claude\projects\NBH\Plugin\UmbraNightlife\obj\Debug\UmbraNightlife.dll
+C:\Users\user\.claude\projects\NBH\Plugin\UmbraNightlife\obj\Debug\UmbraNightlife.pdb
