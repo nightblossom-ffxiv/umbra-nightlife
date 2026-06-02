@@ -11,16 +11,16 @@
     "C:\\Users\\user\\.nuget\\packages\\": {}
   },
   "project": {
-    "version": "1.0.0.7",
+    "version": "1.0.0.8",
     "restore": {
-      "projectUniqueName": "C:\\Users\\user\\.claude\\projects\\NBH\\Plugin\\UmbraNightlife\\UmbraNightlife.csproj",
+      "projectUniqueName": "C:\\Users\\user\\.claude\\projects\\nbh\\Plugin\\UmbraNightlife\\UmbraNightlife.csproj",
       "projectName": "UmbraNightlife",
-      "projectPath": "C:\\Users\\user\\.claude\\projects\\NBH\\Plugin\\UmbraNightlife\\UmbraNightlife.csproj",
+      "projectPath": "C:\\Users\\user\\.claude\\projects\\nbh\\Plugin\\UmbraNightlife\\UmbraNightlife.csproj",
       "packagesPath": "C:\\Users\\user\\.nuget\\packages\\",
-      "outputPath": "C:\\Users\\user\\.claude\\projects\\NBH\\Plugin\\UmbraNightlife\\obj\\",
+      "outputPath": "C:\\Users\\user\\.claude\\projects\\nbh\\Plugin\\UmbraNightlife\\obj\\",
       "projectStyle": "PackageReference",
       "configFilePaths": [
-        "C:\\Users\\user\\.claude\\projects\\NBH\\Plugin\\NuGet.Config",
+        "C:\\Users\\user\\.claude\\projects\\nbh\\Plugin\\NuGet.Config",
         "C:\\Users\\user\\AppData\\Roaming\\NuGet\\NuGet.Config"
       ],
       "originalTargetFrameworks": [

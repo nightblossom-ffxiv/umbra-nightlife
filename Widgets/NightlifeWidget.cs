@@ -68,7 +68,7 @@ public class NightlifeWidget(
             new SelectWidgetConfigVariable(
                     "DataCenter",
                     I18N("Data Centre"),
-                    I18N("Default shows only venues on your current data centre. Choose a specific DC or 'All' to override."),
+                    I18N("Default shows venues across your whole region (e.g. EU = Chaos + Light). Pick a region, a single data centre, your current DC only, or 'All'."),
                     "",
                     DataCentreOptions()
                 ) { Category = "Filters" },
@@ -96,11 +96,30 @@ public class NightlifeWidget(
         ];
     }
 
+    /// <summary>
+    /// Physical region → its logical data centres. Used to show venues across a player's whole
+    /// region (an EU player sees both Chaos and Light) rather than just their current DC.
+    /// Keys match the "region:" dropdown values; names match the FFXIVVenues <c>dataCenter</c> field.
+    /// </summary>
+    private static readonly IReadOnlyDictionary<string, string[]> RegionDataCenters =
+        new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["NA"] = ["Aether", "Primal", "Crystal", "Dynamis"],
+            ["EU"] = ["Chaos", "Light"],
+            ["JP"] = ["Elemental", "Gaia", "Mana", "Meteor"],
+            ["OCE"] = ["Materia"],
+        };
+
     private static Dictionary<string, string> DataCentreOptions()
         => new()
         {
-            [""] = "Auto (your current data centre)",
-            ["All"] = "All data centres",
+            [""] = "Auto (your whole region)",
+            ["CurrentDc"] = "Your current data centre only",
+            ["All"] = "All regions",
+            ["region:NA"] = "North America (all DCs)",
+            ["region:EU"] = "Europe (Chaos + Light)",
+            ["region:JP"] = "Japan (all DCs)",
+            ["region:OCE"] = "Oceania (Materia)",
             ["Aether"] = "Aether (NA)",
             ["Primal"] = "Primal (NA)",
             ["Crystal"] = "Crystal (NA)",
@@ -183,7 +202,7 @@ public class NightlifeWidget(
 
             if (_preferences.IsFavorite(v.Id)) { favoriteViews.Add(v); continue; }
             if (_preferences.IsHidden(v.Id)) continue;
-            if (dcFilter is not null && v.DataCenter != dcFilter) continue;
+            if (dcFilter is not null && !dcFilter.Contains(v.DataCenter)) continue;
             if (sfwOnly && !v.Sfw) continue;
             if (openOnly && !v.IsOpenNow) continue;
             views.Add(v);
@@ -315,28 +334,67 @@ public class NightlifeWidget(
     // ── Helpers ─────────────────────────────────────────────────────────
 
     /// <summary>
-    /// "" = auto (current DC, or null if not logged in → no filter).
-    /// "All" = explicit no filter.
-    /// DC name = that DC only.
-    /// Returns null when no filtering should happen.
+    /// Resolves the configured filter to the SET of data-centre names whose venues should show,
+    /// or <c>null</c> for "no filter / show everything".
+    ///   <c>""</c>         → auto: every DC in the player's physical region (EU ⇒ Chaos + Light);
+    ///                       falls back to no filter when not logged in.
+    ///   <c>"CurrentDc"</c> → only the player's current DC (the old auto behaviour).
+    ///   <c>"All"</c>       → null (no filter).
+    ///   <c>"region:XX"</c> → every DC in that region.
+    ///   <c>"&lt;DC&gt;"</c>      → that single DC.
     /// </summary>
-    private string? ResolveDataCenterFilter()
+    private IReadOnlySet<string>? ResolveDataCenterFilter()
     {
         var setting = GetConfigValue<string>("DataCenter") ?? "";
-        if (setting == "All") return null;
-        if (setting != "") return setting;
 
+        if (setting == "All") return null;
+
+        if (setting.StartsWith("region:", StringComparison.Ordinal))
+        {
+            var region = setting["region:".Length..];
+            return RegionDataCenters.TryGetValue(region, out var dcs) ? ToSet(dcs) : null;
+        }
+
+        if (setting == "CurrentDc")
+        {
+            var dc = CurrentPlayerDataCenter();
+            return dc is null ? null : ToSet(dc);
+        }
+
+        if (setting != "")                 // an explicit single DC
+            return ToSet(setting);
+
+        // "" = auto → the player's whole region.
+        var current = CurrentPlayerDataCenter();
+        if (current is null) return null;                       // not logged in → show all
+        return RegionForDataCenter(current) ?? ToSet(current);  // unknown DC → just that DC
+    }
+
+    private static IReadOnlySet<string> ToSet(params string[] names)
+        => new HashSet<string>(names, StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Current character's data-centre name, or null if not logged in / unavailable.</summary>
+    private static string? CurrentPlayerDataCenter()
+    {
         try
         {
             var world = ObjectTable.LocalPlayer?.CurrentWorld.ValueNullable;
             var dcName = world?.DataCenter.ValueNullable?.Name.ExtractText();
-            if (!string.IsNullOrWhiteSpace(dcName)) return dcName;
+            return string.IsNullOrWhiteSpace(dcName) ? null : dcName;
         }
         catch
         {
-            // Not logged in or API shape changed — fall through.
+            return null; // not logged in or API shape changed
         }
-        return null; // no DC detected → show all
+    }
+
+    /// <summary>All data centres in the same region as <paramref name="dc"/>, or null if unknown.</summary>
+    private static IReadOnlySet<string>? RegionForDataCenter(string dc)
+    {
+        foreach (var (_, dcs) in RegionDataCenters)
+            if (dcs.Contains(dc, StringComparer.OrdinalIgnoreCase))
+                return ToSet(dcs);
+        return null;
     }
 
     private static string FormatTime(DateTime utc)
